@@ -152,7 +152,8 @@ df2SCE <- function(
                            cofactor = transform_cofactor,
                            derand = FALSE,
                            .keep = TRUE,
-                           markers = markers) %>%
+                           markers = markers,
+                           non_markers = scatter) %>%
            t()),
     colData = colData,
     rowData = rowData,
