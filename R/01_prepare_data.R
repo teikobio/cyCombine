@@ -367,13 +367,14 @@ transform_asinh <- function(df,
                             cofactor = 5,
                             derand = TRUE,
                             .keep = FALSE,
-                            reverse = FALSE){
+                            reverse = FALSE,
+                            non_markers = .GlobalEnv$non_markers){
   if(is.null(markers)){
     markers <- df %>%
       cyCombine::get_markers()
   }
   # Use global non_markers if available
-  if(!is.null(.GlobalEnv$non_markers)) non_markers <- .GlobalEnv$non_markers
+  # if(!is.null(.GlobalEnv$non_markers)) non_markers <- .GlobalEnv$non_markers
 
   if(any(markers %!in% colnames(df))){
     mes <- stringr::str_c("Not all given markers are in the data.\nCheck if the markers contain a _ or -:",
@@ -386,16 +387,42 @@ transform_asinh <- function(df,
   } else if(.keep & any(colnames(df) %!in% unique(colnames(df)))){
     stop("Your data contains non-unique column names. Please ensure they are unique. The column names are: ", stringr::str_c(colnames(df), collapse = ", "))
   }
-  message("Transforming data using asinh with a cofactor of ", cofactor, "..")
-  transformed <- df %>%
-    purrr::when(.keep ~ .,
-                ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers))) %>%
-    # Transform all data on those markers
-    dplyr::mutate(dplyr::across(dplyr::all_of(markers),
-                     .fns = function(x){
-                       if(derand & !reverse) x <- ceiling(x)
-                       if(reverse) sinh(x)*cofactor else asinh(x/cofactor)
-                     }))
+  if(is.vector(cofactor) & (length(cofactor) == 1)){
+    message("Transforming data using asinh with a cofactor of ", cofactor, "...")
+    transformed <- df %>%
+      purrr::when(.keep ~ .,
+                  ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers))) %>%
+      # Transform all data on those markers
+      dplyr::mutate(dplyr::across(dplyr::all_of(markers),
+                                  .fns = function(x){
+                                    if(derand & !reverse) x <- ceiling(x)
+                                    if(reverse) sinh(x)*cofactor else asinh(x/cofactor)
+                                  }))
+  } else if(is.data.frame(cofactor)){
+    if(length(setdiff(c("cofactor","marker"),colnames(cofactor))) > 0){
+      stop("Columns 'cofactor' and/or 'marker' not found in cofactor dataframe")
+    } else {
+      message("Transforming data using asinh with channel-specific cofactors...")
+    }
+    transformed <- df %>% 
+      purrr::when(.keep ~ .,
+                  ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers)))
+    for(m in markers){
+      m_cf <- cofactor$cofactor[which(cofactor$marker==m)]
+      if(length(m_cf)==0){
+        stop("Cofactor not found for marker: ",m)
+      }
+      if(derand & !reverse){
+        transformed[[m]] <- ceiling(transformed[[m]])
+      }
+      if(reverse){
+        transformed[[m]] <- sinh(transformed[[m]])*m_cf
+      } else {
+        transformed[[m]] <- asinh(transformed[[m]]/m_cf)
+      }
+    }
+  }
+
   return(transformed)
 }
 
