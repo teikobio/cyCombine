@@ -12,7 +12,8 @@
 #' @param panel_antigen Optional: Only used if panel is given. It is the column name in the panel data that contains the antigen names
 #' @param panel_type Optional: Only used if panel is given. It is the column name in the panel data that contains the antigen types (none, state, type).
 #'  "none" will be excluded from SCE. Set to NULL to disregard.
-#' @param transform_cofactor The cofactor to use when reverse-transforming to raw counts
+#' @param transform_cofactor The cofactor to use when reverse-transforming values; can be a single number or a dataframe with "marker" and "cofactor" columns
+#' @param scatter Optional: Scatter-type markers that are not transformed but should ultimately be exported to the FCS files.
 #' @family export
 #' @examples
 #' \dontrun{
