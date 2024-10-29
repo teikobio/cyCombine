@@ -351,10 +351,11 @@ fcs_sample <- function(flowframe, sample, nrows, seed = 473){
 #'
 #' @param df The tibble to transform
 #' @param markers The markers to transform on
-#' @param cofactor The cofactor to use when transforming
+#' @param cofactor The cofactor to use when transforming; can be a single value or a dataframe with "marker" and "cofactor" columns
 #' @param derand Derandomize. Should be TRUE for CyTOF data, otherwise FALSE.
 #' @param .keep Keep all channels. If FALSE, channels that are not transformed are removed
 #' @param reverse Reverses the asinh transformation if TRUE
+#' @param non_markers The channels that should not be transformed but should be retained if .keep is TRUE. Default is the value of the "non_markers" global variable.
 #' @family dataprep
 #' @examples
 #' \dontrun{
@@ -373,8 +374,6 @@ transform_asinh <- function(df,
     markers <- df %>%
       cyCombine::get_markers()
   }
-  # Use global non_markers if available
-  # if(!is.null(.GlobalEnv$non_markers)) non_markers <- .GlobalEnv$non_markers
 
   if(any(markers %!in% colnames(df))){
     mes <- stringr::str_c("Not all given markers are in the data.\nCheck if the markers contain a _ or -:",
@@ -407,18 +406,18 @@ transform_asinh <- function(df,
     transformed <- df %>% 
       purrr::when(.keep ~ .,
                   ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers)))
-    for(m in markers){
-      m_cf <- cofactor$cofactor[which(cofactor$marker==m)]
-      if(length(m_cf)==0){
-        stop("Cofactor not found for marker: ",m)
+    for(marker in markers){
+      marker_cofactor <- cofactor$cofactor[which(cofactor$marker==marker)]
+      if(length(marker_cofactor)==0){
+        stop("Cofactor not found for marker: ",marker)
       }
       if(derand & !reverse){
-        transformed[[m]] <- ceiling(transformed[[m]])
+        transformed[[marker]] <- ceiling(transformed[[marker]])
       }
       if(reverse){
-        transformed[[m]] <- sinh(transformed[[m]])*m_cf
+        transformed[[marker]] <- sinh(transformed[[marker]])*marker_cofactor
       } else {
-        transformed[[m]] <- asinh(transformed[[m]]/m_cf)
+        transformed[[marker]] <- asinh(transformed[[marker]]/marker_cofactor)
       }
     }
   }
