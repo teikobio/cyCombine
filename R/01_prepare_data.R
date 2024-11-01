@@ -351,10 +351,11 @@ fcs_sample <- function(flowframe, sample, nrows, seed = 473){
 #'
 #' @param df The tibble to transform
 #' @param markers The markers to transform on
-#' @param cofactor The cofactor to use when transforming
+#' @param cofactor The cofactor to use when transforming; can be a single value or a dataframe with "marker" and "cofactor" columns
 #' @param derand Derandomize. Should be TRUE for CyTOF data, otherwise FALSE.
 #' @param .keep Keep all channels. If FALSE, channels that are not transformed are removed
 #' @param reverse Reverses the asinh transformation if TRUE
+#' @param non_markers The channels that should not be transformed but should be retained if .keep is TRUE. Default is the value of the "non_markers" global variable.
 #' @family dataprep
 #' @examples
 #' \dontrun{
@@ -367,13 +368,12 @@ transform_asinh <- function(df,
                             cofactor = 5,
                             derand = TRUE,
                             .keep = FALSE,
-                            reverse = FALSE){
+                            reverse = FALSE,
+                            non_markers = .GlobalEnv$non_markers){
   if(is.null(markers)){
     markers <- df %>%
       cyCombine::get_markers()
   }
-  # Use global non_markers if available
-  if(!is.null(.GlobalEnv$non_markers)) non_markers <- .GlobalEnv$non_markers
 
   if(any(markers %!in% colnames(df))){
     mes <- stringr::str_c("Not all given markers are in the data.\nCheck if the markers contain a _ or -:",
@@ -386,16 +386,42 @@ transform_asinh <- function(df,
   } else if(.keep & any(colnames(df) %!in% unique(colnames(df)))){
     stop("Your data contains non-unique column names. Please ensure they are unique. The column names are: ", stringr::str_c(colnames(df), collapse = ", "))
   }
-  message("Transforming data using asinh with a cofactor of ", cofactor, "..")
-  transformed <- df %>%
-    purrr::when(.keep ~ .,
-                ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers))) %>%
-    # Transform all data on those markers
-    dplyr::mutate(dplyr::across(dplyr::all_of(markers),
-                     .fns = function(x){
-                       if(derand & !reverse) x <- ceiling(x)
-                       if(reverse) sinh(x)*cofactor else asinh(x/cofactor)
-                     }))
+  if(is.vector(cofactor) & (length(cofactor) == 1)){
+    message("Transforming data using asinh with a cofactor of ", cofactor, "...")
+    transformed <- df %>%
+      purrr::when(.keep ~ .,
+                  ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers))) %>%
+      # Transform all data on those markers
+      dplyr::mutate(dplyr::across(dplyr::all_of(markers),
+                                  .fns = function(x){
+                                    if(derand & !reverse) x <- ceiling(x)
+                                    if(reverse) sinh(x)*cofactor else asinh(x/cofactor)
+                                  }))
+  } else if(is.data.frame(cofactor)){
+    if(length(setdiff(c("cofactor","marker"),colnames(cofactor))) > 0){
+      stop("Columns 'cofactor' and/or 'marker' not found in cofactor dataframe")
+    } else {
+      message("Transforming data using asinh with channel-specific cofactors...")
+    }
+    transformed <- df %>% 
+      purrr::when(.keep ~ .,
+                  ~ dplyr::select_if(., colnames(.) %in% c(markers, non_markers)))
+    for(marker in markers){
+      marker_cofactor <- cofactor$cofactor[which(cofactor$marker==marker)]
+      if(length(marker_cofactor)==0){
+        stop("Cofactor not found for marker: ",marker)
+      }
+      if(derand & !reverse){
+        transformed[[marker]] <- ceiling(transformed[[marker]])
+      }
+      if(reverse){
+        transformed[[marker]] <- sinh(transformed[[marker]])*marker_cofactor
+      } else {
+        transformed[[marker]] <- asinh(transformed[[marker]]/marker_cofactor)
+      }
+    }
+  }
+
   return(transformed)
 }
 

@@ -190,7 +190,7 @@ evaluate_emd <- function(uncorrected,
 
   # Calculate total reduction
   reduction <- (sum(emds_filtered$Reduction) / sum(emds_filtered$Uncorrected)) %>%
-    round(2)
+    round(4)
   message("The reduction is: ", reduction)
 
 
@@ -383,7 +383,7 @@ evaluate_mad <- function(uncorrected,
   }
 
   # Calculate combined MAD score (median of all aboslute differences between uncor/cor)
-  score <- stats::median(mads_filtered$Difference, na.rm = T) %>% round(2)
+  score <- stats::median(mads_filtered$Difference, na.rm = T) %>% round(4)
 
   message("The MAD score is: ", score)
 
